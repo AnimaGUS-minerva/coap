@@ -3,7 +3,7 @@
 
 module CoRE
   module CoAP
-    class Message < Struct.new(:ver, :tt, :mcode, :mid, :options, :payload)
+    class Message < Struct.new(:ver, :tt, :mcode, :mid, :options, :payload, :scheme)
       def initialize(*args) # convenience: .new(tt?, mcode?, mid?, payload?, hash?)
         if args.size < 6
           h = {}
@@ -24,12 +24,13 @@ module CoRE
           mid = h.delete(:mid) || args.shift
 
           payload = h.delete(:payload) || args.shift || EMPTY
+          scheme  = h.delete(:scheme)  || args.shift || EMPTY
 
           unless args.empty?
             raise 'CoRE::CoAP::Message.new: Either specify Hash or all arguments.'
           end
 
-          super(1, tt, mcode, mid, h, payload)
+          super(1, tt, mcode, mid, h[:options], payload, scheme)
         else
           super
         end
@@ -77,7 +78,7 @@ module CoRE
         path  = CoAP.path_encode(self.options[:uri_path])
         query = CoAP.query_encode(self.options[:uri_query])
 
-        [tt, mcode_readable, path, query].join(' ').rstrip
+        [scheme, tt, mcode_readable, path, query].join(' ').rstrip
       end
 
       def to_wire
@@ -155,7 +156,7 @@ module CoRE
           raise "[#{d.inspect}] Bad delta/length nibble #{len} at #{dpos}"
         end
       end
-      
+
       def self.parse(d)
         # dpos keeps our current position in parsing d
         b1, mcode, mid = d.unpack("CCn"); dpos = 4
@@ -191,7 +192,7 @@ module CoRE
         end
 
         options[CoAP::TOKEN_ON] = [token] if token != ''
-        
+
         # d.bytesize = more than all the rest...
         decode_options_and_put_together(b1, tt, mcode, mid, options,
                                         d.byteslice(dpos, d.bytesize))

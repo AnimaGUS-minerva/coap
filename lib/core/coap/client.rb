@@ -4,19 +4,29 @@ module CoRE
   module CoAP
     # CoAP client library
     class Client
-      attr_accessor :max_payload, :host, :port
+      attr_accessor :max_payload, :host, :port, :scheme, :logger
 
       # @param  options   Valid options are (all optional): max_payload
       #                   (maximum payload size, default 256), max_retransmit
       #                   (maximum retransmission count, default 4),
       #                   recv_timeout (timeout for ACK responses, default: 2),
+      #                   scheme (coap: or coaps:)
       #                   host (destination host), post (destination port,
       #                   default 5683).
       def initialize(options = {})
         @max_payload = options[:max_payload] || 256
 
         @host = options[:host]
-        @port = options[:port] || CoAP::PORT
+        @scheme=options[:scheme].to_sym || :coap
+        defport = CoAP::PORT
+        case @scheme
+        when :coap
+          nil
+        when :coaps
+          defport = CoAP::DTLS_PORT
+        end
+
+        @port = options[:port] || defport
 
         @options = options
 
@@ -186,7 +196,7 @@ module CoRE
         end
 
         # Create CoAP message struct.
-        message = initialize_message(method, path, query, payload)
+        message = initialize_message(method, scheme, path, query, payload)
         message.mid = options.delete(:mid) if options[:mid]
 
         # Set message type to non if chosen in global or local options.
@@ -222,6 +232,22 @@ module CoRE
         message.options.merge!(options)
 
         log_message(:sending_message, message)
+        log_message(:target, [host,port])
+
+        if @scheme == :coaps
+          info   = Addrinfo.udp(host, port)
+          usock  = UDPSocket::new(info.afamily)
+          usock.connect(info.ip_address, info.ip_port)
+          sock   = Celluloid::IO::UDPSocket.new(usock)
+
+          sslctx = OpenSSL::SSL::DTLSContext.new
+          #sslctx.min_version = OpenSSL::SSL::TLS1_1_VERSION
+          sslctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+          # XXX consider if DTLS handshake should be done here?
+          @options[:socket]  = OpenSSL::SSL::DTLSSocket.new(usock, sslctx)
+          @options[:iosocket] = sock
+        end
 
         # Wait for answer and retry sending message if timeout reached.
         @transmission, recv_parsed = Transmission.request(message, host, port, @options)
@@ -270,13 +296,14 @@ module CoRE
         uri
       end
 
-      def initialize_message(method, path, query = nil, payload = nil)
+      def initialize_message(method, uri_scheme, path, query = nil, payload = nil)
         mid = SecureRandom.random_number(0xffff)
 
+        scheme = uri_scheme
         options = {
-          uri_path: CoAP.path_decode(path)
+          uri_path: CoAP.path_decode(path),
         }
-        
+
         unless @options[:token] == false
           options[:token] = SecureRandom.random_number(0xffffffff)
         end
@@ -284,8 +311,12 @@ module CoRE
         unless query.nil?
           options[:uri_query] = CoAP.query_decode(query)
         end
-
-        Message.new(:con, method, mid, payload, options)
+        Message.new({ :options => options,
+                      :payload => payload,
+                      :scheme  => scheme,
+                      :tt      => :con,
+                      :mcode   => method,
+                      :mid     => mid})
       end
 
       # Log message to debug log.
