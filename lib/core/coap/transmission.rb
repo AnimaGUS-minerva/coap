@@ -54,6 +54,7 @@ module CoRE
         flags = mid.nil? ? 0 : Socket::MSG_PEEK
 
         data = Timeout.timeout(timeout) do
+          #STDERR.puts "calling recvfrom on #{@socket}"
           @socket.recvfrom(1152, flags)
         end
 
@@ -79,8 +80,11 @@ module CoRE
         retry_count = 0
         retransmit = @retransmit && message.tt == :con
 
+        STDERR.puts "TRANSMITTING: #{host} #{port}"
+        #byebug
+        sendmesg(message, host, port)
+
         begin
-          send(message, host, port)
           response = receive(retry_count: retry_count, mid: message.mid)
         rescue Timeout::Error
           raise unless retransmit
@@ -102,12 +106,14 @@ module CoRE
       end
 
       # Send +message+.
-      def send(message, host, port = CoAP::PORT)
+      def sendmesg(message, host, port = CoAP::PORT)
         message = message.to_wire if message.respond_to?(:to_wire)
 
         # In MRI and Rubinius, the Socket::MSG_DONTWAIT option is 64.
         # It is not defined by JRuby.
         # TODO Is it really necessary?
+
+        # XXX change to sendmsg()
         @socket.send(message, 64, host, port)
       end
 
