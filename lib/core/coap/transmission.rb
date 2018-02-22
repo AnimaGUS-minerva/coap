@@ -60,9 +60,9 @@ module CoRE
 
         answer = CoAP.parse(data[0].force_encoding('BINARY'))
 
-        if mid == answer.mid
-          Timeout.timeout(1) { @socket.recvfrom(1152) }
-        end
+        #if mid == answer.mid
+        #  Timeout.timeout(1) { @socket.recvfrom(1152, flags) }
+        #end
 
         if answer.tt == :con
           message = Message.new(:ack, 0, answer.mid, nil,
