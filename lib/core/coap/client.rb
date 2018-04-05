@@ -4,7 +4,11 @@ module CoRE
   module CoAP
     # CoAP client library
     class Client
-      attr_accessor :max_payload, :host, :port, :scheme, :logger
+
+      class NotDTLSSocket < Exception
+      end
+
+      attr_accessor :max_payload, :host, :port, :scheme, :logger, :io, :dtls
 
       # @param  options   Valid options are (all optional): max_payload
       #                   (maximum payload size, default 256), max_retransmit
@@ -34,7 +38,7 @@ module CoRE
       end
 
       # Enable DTLS socket.
-      def use_dtls
+      def use_codtls
         require 'CoDTLS'
         @options[:socket] = CoDTLS::SecureSocket
         self
@@ -165,9 +169,40 @@ module CoRE
         observe(*decode_uri(uri), *args)
       end
 
+      def peer_cert
+        raise NotDTLSSocket unless @scheme == :coaps
+        @dtls.peer_cert
+      end
+
       private
 
-      def client(method, path, host = nil, port = nil, payload = nil, options = {}, observe_callback = nil)
+      def make_io_channel
+        info   = Addrinfo.udp(host, port)
+        usock  = UDPSocket::new(info.afamily)
+        usock.connect(info.ip_address, info.ip_port)
+        sock   = Celluloid::IO::UDPSocket.new(usock)
+
+        if @scheme == :coaps
+          sslctx = OpenSSL::SSL::DTLSContext.new
+          #sslctx.min_version = OpenSSL::SSL::TLS1_1_VERSION
+          sslctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+          # XXX consider if DTLS handshake should be done here?
+          @dtls              = OpenSSL::SSL::DTLSSocket.new(usock, sslctx)
+          @options[:socket]  = @dtls
+          @options[:iosocket] = sock
+        else
+          @options[:socket] = sock
+        end
+        @options[:socket]
+      end
+
+      def io
+        @io ||= make_io_channel
+      end
+
+      def client(method, path, host = nil, port = nil, payload = nil, coapoptions = {}, observe_callback = nil)
+
         # Set host and port only one time on multiple requests
         host.nil? ? (host = @host unless @host.nil?) : @host = host
         port.nil? ? (port = @port unless @port.nil?) : @port = port
@@ -182,10 +217,10 @@ module CoRE
         block2 = Block.new(0, false, szx)
 
         # Initialize block1.
-        block1 = if options[:block1].nil?
+        block1 = if coapoptions[:block1].nil?
           Block.new(0, false, szx)
         else
-          Block.new(options[:block1]).decode
+          Block.new(coapoptions[:block1]).decode
         end
 
         # Initialize chunks if payload size > max_payload.
@@ -197,17 +232,17 @@ module CoRE
 
         # Create CoAP message struct.
         message = initialize_message(method, scheme, path, query, payload)
-        message.mid = options.delete(:mid) if options[:mid]
+        message.mid = coapoptions.delete(:mid) if coapoptions[:mid]
 
         # Set message type to non if chosen in global or local options.
-        if options.delete(:tt) == :non || @options.delete(:tt) == :non
+        if coapoptions.delete(:tt) == :non || @options.delete(:tt) == :non
           message.tt = :non
         end
 
         # If more than 1 chunk, we need to use block1.
         if !payload.nil? && chunks.size > 1
           # Increase block number.
-          block1.num += 1 unless options[:block1].nil?
+          block1.num += 1 unless coapoptions[:block1].nil?
 
           # More chunks?
           if chunks.size > block1.num + 1
@@ -225,32 +260,20 @@ module CoRE
         end
 
         # Preserve user options.
-        message.options[:block2] = options[:block2] unless options[:block2] == nil
-        message.options[:observe] = options[:observe] unless options[:observe] == nil
+        message.options[:block2]  = coapoptions[:block2]  unless coapoptions[:block2] == nil
+        message.options[:observe] = coapoptions[:observe] unless coapoptions[:observe] == nil
 
-        options.delete(:block1)
-        message.options.merge!(options)
+        coapoptions.delete(:block1)
+        message.options.merge!(coapoptions)
 
         log_message(:sending_message, message)
         log_message(:target, [host,port])
 
-        if @scheme == :coaps
-          info   = Addrinfo.udp(host, port)
-          usock  = UDPSocket::new(info.afamily)
-          usock.connect(info.ip_address, info.ip_port)
-          sock   = Celluloid::IO::UDPSocket.new(usock)
-
-          sslctx = OpenSSL::SSL::DTLSContext.new
-          #sslctx.min_version = OpenSSL::SSL::TLS1_1_VERSION
-          sslctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
-
-          # XXX consider if DTLS handshake should be done here?
-          @options[:socket]  = OpenSSL::SSL::DTLSSocket.new(usock, sslctx)
-          @options[:iosocket] = sock
-        end
+        # make sure that the @options[:socket] is filled in
+        coapoptions[:socket] = io
 
         # Wait for answer and retry sending message if timeout reached.
-        @transmission, recv_parsed = Transmission.request(message, host, port, @options)
+        @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
 
         log_message(:received_message, recv_parsed)
 
