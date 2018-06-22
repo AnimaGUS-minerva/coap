@@ -33,6 +33,21 @@ module CoRE
         ]
       end
 
+      # this version will map strings accoring the mapper.
+      def uint_once_mapped(min, max, default = nil, &mapper)
+        [default, (min..max), false,
+         ->(a) { CoAP.vlb_decode(a[0]) },
+         ->(v) { v == default ? [] :
+                   [
+                     (if v.is_a? String
+                       v = mapper.call(v)
+                     end
+                     CoAP.vlb_encode(v))
+                   ]
+         }
+        ]
+      end
+
       def uint_many(min, max)
         [nil, (min..max), true,
          ->(a) { a.map{ |x| CoAP.vlb_decode(x)} },
