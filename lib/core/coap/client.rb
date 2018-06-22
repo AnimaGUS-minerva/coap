@@ -9,6 +9,7 @@ module CoRE
       end
 
       attr_accessor :max_payload, :host, :port, :scheme, :logger, :io, :dtls
+      attr_accessor :client_cert, :client_key
 
       # @param  options   Valid options are (all optional): max_payload
       #                   (maximum payload size, default 256), max_retransmit
@@ -174,6 +175,18 @@ module CoRE
         @dtls.peer_cert
       end
 
+      def client_cert=(x)
+        raise NotDTLSSocket unless @scheme == :coaps
+
+        @client_cert = x
+      end
+
+      def client_key=(x)
+        raise NotDTLSSocket unless @scheme == :coaps
+
+        @client_key = x
+      end
+
       private
 
       def make_io_channel
@@ -185,7 +198,14 @@ module CoRE
         if @scheme == :coaps
           sslctx = OpenSSL::SSL::DTLSContext.new
           #sslctx.min_version = OpenSSL::SSL::TLS1_1_VERSION
+
+          # need a way to get at this setting too.
           sslctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+          if @client_cert
+            sslctx.cert = @client_cert
+            sslctx.key  = @client_key
+          end
 
           # XXX consider if DTLS handshake should be done here?
           @dtls              = OpenSSL::SSL::DTLSSocket.new(usock, sslctx)
@@ -207,7 +227,15 @@ module CoRE
         host.nil? ? (host = @host unless @host.nil?) : @host = host
         port.nil? ? (port = @port unless @port.nil?) : @port = port
 
-        path, query = path.split('?')
+        query = nil
+        case path
+        when String
+          path, query = path.split('?')
+        when URI::Generic
+          uri   = path
+          path  = path.path
+          query = nil
+        end
 
         validate_arguments!(host, port, path, payload)
 
