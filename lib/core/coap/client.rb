@@ -4,19 +4,29 @@ module CoRE
   module CoAP
     # CoAP client library
     class Client
-      attr_accessor :max_payload, :host, :port
+      attr_accessor :max_payload, :host, :port, :scheme, :logger
 
       # @param  options   Valid options are (all optional): max_payload
       #                   (maximum payload size, default 256), max_retransmit
       #                   (maximum retransmission count, default 4),
       #                   recv_timeout (timeout for ACK responses, default: 2),
+      #                   scheme (coap: or coaps:)
       #                   host (destination host), post (destination port,
       #                   default 5683).
       def initialize(options = {})
         @max_payload = options[:max_payload] || 256
 
         @host = options[:host]
-        @port = options[:port] || CoAP::PORT
+        @scheme=(options[:scheme] || :coap).to_sym
+        defport = CoAP::PORT
+        case @scheme
+        when :coap
+          nil
+        when :coaps
+          defport = CoAP::DTLS_PORT
+        end
+
+        @port = options[:port] || defport
 
         @options = options
 
@@ -222,6 +232,22 @@ module CoRE
         message.options.merge!(options)
 
         log_message(:sending_message, message)
+        log_message(:target, [host,port])
+
+        if @scheme == :coaps
+          info   = Addrinfo.udp(host, port)
+          usock  = UDPSocket::new(info.afamily)
+          usock.connect(info.ip_address, info.ip_port)
+          sock   = Celluloid::IO::UDPSocket.new(usock)
+
+          sslctx = OpenSSL::SSL::DTLSContext.new
+          #sslctx.min_version = OpenSSL::SSL::TLS1_1_VERSION
+          sslctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+          # XXX consider if DTLS handshake should be done here?
+          @options[:socket]  = OpenSSL::SSL::DTLSSocket.new(usock, sslctx)
+          @options[:iosocket] = sock
+        end
 
         # Wait for answer and retry sending message if timeout reached.
         @transmission, recv_parsed = Transmission.request(message, host, port, @options)
