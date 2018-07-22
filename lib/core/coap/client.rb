@@ -196,7 +196,7 @@ module CoRE
         end
 
         # Create CoAP message struct.
-        message = initialize_message(method, path, query, payload)
+        message = initialize_message(method, scheme, path, query, payload)
         message.mid = options.delete(:mid) if options[:mid]
 
         # Set message type to non if chosen in global or local options.
@@ -296,11 +296,12 @@ module CoRE
         uri
       end
 
-      def initialize_message(method, path, query = nil, payload = nil)
+      def initialize_message(method, uri_scheme, path, query = nil, payload = nil)
         mid = SecureRandom.random_number(0xffff)
 
+        scheme = uri_scheme
         options = {
-          uri_path: CoAP.path_decode(path)
+          uri_path: CoAP.path_decode(path),
         }
 
         unless @options[:token] == false
