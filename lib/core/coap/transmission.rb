@@ -64,8 +64,11 @@ module CoRE
         end
 
         if answer.tt == :con
-          message = Message.new(:ack, 0, answer.mid, nil,
-            {token: answer.options[:token]})
+          message = Message.new({ :options => {token: answer.options[:token]},
+                                  :scheme  => answer.scheme,
+                                  :tt      => :ack,
+                                  :mcode   => 0,
+                                  :mid     => answer.mid})
 
           send(message, data[1][3])
         end

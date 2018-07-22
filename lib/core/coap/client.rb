@@ -302,7 +302,7 @@ module CoRE
         options = {
           uri_path: CoAP.path_decode(path)
         }
-        
+
         unless @options[:token] == false
           options[:token] = SecureRandom.random_number(0xffffffff)
         end
@@ -310,8 +310,12 @@ module CoRE
         unless query.nil?
           options[:uri_query] = CoAP.query_decode(query)
         end
-
-        Message.new(:con, method, mid, payload, options)
+        Message.new({ :options => options,
+                      :payload => payload,
+                      :scheme  => scheme,
+                      :tt      => :con,
+                      :mcode   => method,
+                      :mid     => mid})
       end
 
       # Log message to debug log.
