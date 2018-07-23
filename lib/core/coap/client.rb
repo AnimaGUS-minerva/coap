@@ -289,10 +289,10 @@ module CoRE
         if block2.more
           block2.num += 1
 
-          options.delete(:block1) # end block1
-          options[:block2] = block2.encode
+          coapoptions.delete(:block1) # end block1
+          coapoptions[:block2] = block2.encode
 
-          local_recv_parsed = client(method, path, host, port, nil, options)
+          local_recv_parsed = client(method, path, host, port, nil, coapoptions)
 
           unless local_recv_parsed.nil?
             recv_parsed.payload << local_recv_parsed.payload
