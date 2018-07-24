@@ -298,7 +298,7 @@ module CoRE
         log_message(:target, [host,port])
 
         # make sure that the @options[:socket] is filled in
-        coapoptions[:socket] = io
+        io
 
         # Wait for answer and retry sending message if timeout reached.
         @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
