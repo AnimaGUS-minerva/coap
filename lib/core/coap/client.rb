@@ -252,10 +252,8 @@ module CoRE
         end
 
         # Initialize chunks if payload size > max_payload.
-        if !payload.nil? && payload.bytesize > @max_payload
+        if !payload.nil?
           chunks = Block.chunkify(payload, @max_payload)
-        else
-          chunks = [payload]
         end
 
         # Create CoAP message struct.
@@ -281,7 +279,7 @@ module CoRE
           end
 
           # Set final payload.
-          message.payload = chunks[block1.num]
+          message.payload = chunks[block1.num].data
 
           # Set block1 message option.
           message.options[:block1] = block1.encode

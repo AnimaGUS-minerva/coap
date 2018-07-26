@@ -5,10 +5,12 @@ module CoRE
       MAX_NUM = (1048576 - 1).freeze
 
       attr_reader :num, :more, :size
+      attr_accessor :data
 
       def initialize(*args)
         if args.size == 1
           @encoded = args.first.to_i
+          @decoded = []
         else
           @decoded = []
           self.num, self.more, self.size = args
@@ -16,6 +18,12 @@ module CoRE
         end
 
         self
+      end
+
+      # this routine places the block at the correct location in the buffer,
+      # which is assumed to duck-type an array of bytes.
+      def assemble(buffer)
+        buffer[@num * @size, @size] = @data
       end
 
       def chunk(data)
@@ -91,7 +99,20 @@ module CoRE
       end
 
       def self.chunkify(data, size)
-        data.bytes.each_slice(size).map { |c| c.pack('C*') }
+
+        nsize = VALID_SIZE.find { |vs| size < vs }
+
+        num = 0
+        chunks = data.bytes.each_slice(nsize).map { |c| c.pack('C*') }.collect { |d|
+          b = Block.new(0)
+          b.data = d
+          b.size = nsize
+          b.num  = num
+          num += 1
+          b
+        }
+        chunks.last.more = true
+        chunks
       end
     end
   end

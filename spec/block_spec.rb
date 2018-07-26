@@ -157,4 +157,23 @@ describe Block do
       expect(b).to eq(i)
     end
   end
+
+  describe 'assemble a series of blocks' do
+    it 'should create a series of blocks, and then assemble' do
+      data = ((1..1020).collect { |x| rand(256) }).pack('C*')
+      blocks = Block.chunkify(data, 67)
+
+      # 67 will get rounded up to 128.
+
+      expect(blocks.size).to eq(8)   # roundup(1020 / 128) = 8.
+      expect(blocks[0].data.size).to eq(128)
+      expect(blocks[6].data.size).to eq(128)
+      expect(blocks[7].data.size).to eq(124)
+
+      newdata = ""
+      blocks.each { |b| b.assemble(newdata) }
+      expect(newdata).to eq(data)
+    end
+  end
+
 end
