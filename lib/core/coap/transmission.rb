@@ -158,6 +158,7 @@ module CoRE
           else
             transmission = from_host(args[1], options)
           end
+          options.delete(:socket)
 
           [transmission, transmission.__send__(method, *args)]
         end
