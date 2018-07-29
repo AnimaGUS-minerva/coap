@@ -30,7 +30,7 @@ module CoRE
             raise 'CoRE::CoAP::Message.new: Either specify Hash or all arguments.'
           end
 
-          super(1, tt, mcode, mid, h[:options], payload, scheme)
+          super(1, tt, mcode, mid, h[:options] || {}, payload, scheme)
         else
           super
         end
