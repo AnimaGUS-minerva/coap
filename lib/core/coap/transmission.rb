@@ -1,8 +1,13 @@
 module CoRE
   module CoAP
+
     # Socket abstraction.
     class Transmission
       DEFAULT_RECV_TIMEOUT = 2
+
+      class << self
+        attr_accessor :client_debug
+      end
 
       attr_accessor :max_retransmit, :recv_timeout
       attr_reader :address_family, :socket
@@ -53,13 +58,16 @@ module CoRE
         mid   = options[:mid]
         flags = mid.nil? ? 0 : Socket::MSG_PEEK
 
+        #byebug if @client_debug
+        sleep 0.25
         data = Timeout.timeout(timeout) do
           @socket.recvfrom(1152, flags)
         end
 
         answer = CoAP.parse(data[0].force_encoding('BINARY'))
 
-        if mid == answer.mid
+        # what is this read for?
+        if mid == answer.mid and !@client_debug
           Timeout.timeout(1) { @socket.recvfrom(1152) }
         end
 
@@ -79,6 +87,7 @@ module CoRE
       # Send +message+ (retransmit if necessary) and wait for answer. Returns
       # answer.
       def request(message, host, port = CoAP::PORT)
+        #byebug if @client_debug
         retry_count = 0
         retransmit = @retransmit && message.tt == :con
 
