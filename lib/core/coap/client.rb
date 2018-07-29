@@ -306,6 +306,8 @@ module CoRE
         # Payload is not fully transmitted.
         # TODO Get rid of nasty recursion.
         if block1.more
+          # must use same MID value....
+          message.options[:mid] = message.mid
           return client(method, path, host, port, payload, message.options)
         end
 
