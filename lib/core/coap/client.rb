@@ -221,6 +221,21 @@ module CoRE
         @io ||= make_io_channel
       end
 
+      def client_one_block(method: :client,
+                           message:,
+                           host: , port:,
+                           path: '',
+                           socket:,
+                           payload: '',
+                           coapoptions: {})
+
+        # Wait for answer and retry sending message if timeout reached.
+        @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
+        log_message(:received_message, recv_parsed)
+
+        return @transmission, recv_parsed
+      end
+
       def client(method, path, host = nil, port = nil, payload = nil, coapoptions = {}, observe_callback = nil)
 
         # Set host and port only one time on multiple requests
@@ -298,10 +313,11 @@ module CoRE
         # make sure that the @options[:socket] is filled in
         coapoptions[:socket] = io
 
-        # Wait for answer and retry sending message if timeout reached.
-        @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
-
-        log_message(:received_message, recv_parsed)
+        @transmission,recv_parsed = client_one_block(method: method, message: message,
+                                                     host: host,
+                                                     port: port,
+                                                     path: path, socket: io, payload: payload,
+                                                     coapoptions: coapoptions)
 
         # Payload is not fully transmitted.
         # TODO Get rid of nasty recursion.
