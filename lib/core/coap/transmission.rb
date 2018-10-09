@@ -134,7 +134,7 @@ module CoRE
       class << self
         # Return Transmission instance with socket matching address family.
         def from_host(host, options = {})
-          if IPAddr.new(host).ipv6? 
+          if IPAddr.new(host).ipv6?
             new(options)
           else
             new(options.merge(address_family: Socket::AF_INET))

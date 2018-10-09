@@ -1,3 +1,4 @@
+require 'byebug'
 require 'spec_helper'
 require 'benchmark'
 
@@ -23,7 +24,7 @@ describe Block do
       expect(subject.chunk_count(data2)).to eq(2)
     end
   end
-  
+
   describe '#included_by?' do
     it 'should return true if body empty and index 0' do
       expect(subject.included_by?('')).to be(true)

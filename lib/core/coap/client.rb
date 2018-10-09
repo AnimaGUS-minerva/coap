@@ -221,17 +221,40 @@ module CoRE
         @io ||= make_io_channel
       end
 
-      def client_one_block(method: :client,
-                           message:,
-                           host: , port:,
-                           path: '',
-                           socket:,
-                           payload: '',
-                           coapoptions: {})
+      def client_send_blocks(method: :client,
+                             message:,
+                             host: , port:,
+                             path: '',
+                             socket:,
+                             blocks: ,
+                             coapoptions: {})
 
-        # Wait for answer and retry sending message if timeout reached.
-        @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
-        log_message(:received_message, recv_parsed)
+        message.options[:mid] = message.mid
+
+        coapoptions.delete(:block1)
+        message.options.merge!(coapoptions)
+
+        blocks.each { |block|
+          # If more than 1 chunk, we need to use block1.
+
+          # More chunks?
+          if blocks.size > block.num + 1
+            block.more = true
+            message.options.delete(:block2)
+          else
+            block.more = false
+          end
+
+          # Set block1 message option.
+          message.options[:block1] = block.encode
+
+          # Set final payload.
+          message.payload = block.data
+
+          # Wait for answer and retry sending message if timeout reached.
+          @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
+          log_message(:received_message, recv_parsed)
+        }
 
         return @transmission, recv_parsed
       end
@@ -259,13 +282,6 @@ module CoRE
         # Initialize block2 with payload size.
         block2 = Block.new(0, false, szx)
 
-        # Initialize block1.
-        block1 = if coapoptions[:block1].nil?
-          Block.new(0, false, szx)
-        else
-          Block.new(coapoptions[:block1]).decode
-        end
-
         # Initialize chunks if payload size > max_payload.
         if !payload.nil?
           chunks = Block.chunkify(payload, @max_payload)
@@ -280,32 +296,9 @@ module CoRE
           message.tt = :non
         end
 
-        # If more than 1 chunk, we need to use block1.
-        if !payload.nil? && chunks.size > 1
-          # Increase block number.
-          block1.num += 1 unless coapoptions[:block1].nil?
-
-          # More chunks?
-          if chunks.size > block1.num + 1
-            block1.more = true
-            message.options.delete(:block2)
-          else
-            block1.more = false
-          end
-
-          # Set final payload.
-          message.payload = chunks[block1.num].data
-
-          # Set block1 message option.
-          message.options[:block1] = block1.encode
-        end
-
         # Preserve user options.
         message.options[:block2]  = coapoptions[:block2]  unless coapoptions[:block2] == nil
         message.options[:observe] = coapoptions[:observe] unless coapoptions[:observe] == nil
-
-        coapoptions.delete(:block1)
-        message.options.merge!(coapoptions)
 
         log_message(:sending_message, message)
         log_message(:target, [host,port])
@@ -313,19 +306,12 @@ module CoRE
         # make sure that the @options[:socket] is filled in
         coapoptions[:socket] = io
 
-        @transmission,recv_parsed = client_one_block(method: method, message: message,
-                                                     host: host,
-                                                     port: port,
-                                                     path: path, socket: io, payload: payload,
-                                                     coapoptions: coapoptions)
-
-        # Payload is not fully transmitted.
-        # TODO Get rid of nasty recursion.
-        if block1.more
-          # must use same MID value....
-          message.options[:mid] = message.mid
-          return client(method, path, host, port, payload, message.options)
-        end
+        @transmission,recv_parsed = client_send_blocks(method: method, message: message,
+                                                       host: host,
+                                                       port: port,
+                                                       path: path, socket: io,
+                                                       blocks: chunks,
+                                                       coapoptions: coapoptions)
 
         # Test for more block2 payload.
         block2 = Block.new(recv_parsed.options[:block2]).decode
@@ -336,6 +322,7 @@ module CoRE
           coapoptions.delete(:block1) # end block1
           coapoptions[:block2] = block2.encode
 
+          # more recursion to get block2 back.
           local_recv_parsed = client(method, path, host, port, nil, coapoptions)
 
           unless local_recv_parsed.nil?
