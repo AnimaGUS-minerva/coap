@@ -306,12 +306,19 @@ module CoRE
         # make sure that the @options[:socket] is filled in
         coapoptions[:socket] = io
 
-        @transmission,recv_parsed = client_send_blocks(method: method, message: message,
-                                                       host: host,
-                                                       port: port,
-                                                       path: path, socket: io,
-                                                       blocks: chunks,
-                                                       coapoptions: coapoptions)
+        if chunks
+          # something to send
+          @transmission,recv_parsed = client_send_blocks(method: method, message: message,
+                                                         host: host,
+                                                         port: port,
+                                                         path: path, socket: io,
+                                                         blocks: chunks,
+                                                         coapoptions: coapoptions)
+        else
+          # nothing to send, just a GET
+          @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
+          log_message(:received_message, recv_parsed)
+        end
 
         # Test for more block2 payload.
         block2 = Block.new(recv_parsed.options[:block2]).decode
