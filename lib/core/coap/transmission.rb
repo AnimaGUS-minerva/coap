@@ -155,6 +155,17 @@ module CoRE
           invoke(:request, *args)
         end
 
+        def build_transmission_for_options(options, host = nil)
+
+          if options[:socket]
+            transmission = Transmission.new(options)
+          else
+            transmission = from_host(host, options)
+          end
+          options.delete(:socket)
+          return transmission
+        end
+
         private
 
         # Instanciate matching Transmission and invoke +method+ on instance.
@@ -162,12 +173,7 @@ module CoRE
           options = {}
           options = args.pop if args.last.is_a? Hash
 
-          if options[:socket]
-            transmission = Transmission.new(options)
-          else
-            transmission = from_host(args[1], options)
-          end
-          options.delete(:socket)
+          transmission = build_transmission_for_options(options, args[1])
 
           [transmission, transmission.__send__(method, *args)]
         end
