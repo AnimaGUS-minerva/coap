@@ -293,9 +293,14 @@ module CoRE
         # Initialize block2 with payload size.
         block2 = Block.new(0, false, szx)
 
+
         # Initialize chunks if payload size > max_payload.
         if !payload.nil?
           chunks = Block.chunkify(payload, @max_payload)
+
+          # calculate SHA256 of payload for logging/debug purposes
+          sha256 = Digest::SHA2.hexdigest(payload)
+          @logger.debug "### #{payload.size} bytes, #{chunks.size} chunks, SHA256: " + sha256
         end
 
         # Create CoAP message struct.
