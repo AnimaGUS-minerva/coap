@@ -58,18 +58,11 @@ module CoRE
         mid   = options[:mid]
         flags = mid.nil? ? 0 : Socket::MSG_PEEK
 
-        #byebug if @client_debug
-        sleep 0.25
         data = Timeout.timeout(timeout) do
           @socket.recvfrom(1152, flags)
         end
 
         answer = CoAP.parse(data[0].force_encoding('BINARY'))
-
-        # what is this read for?
-        if mid == answer.mid and !@client_debug
-          Timeout.timeout(1) { @socket.recvfrom(1152) }
-        end
 
         if answer.tt == :con
           message = Message.new({ :options => {token: answer.options[:token]},
