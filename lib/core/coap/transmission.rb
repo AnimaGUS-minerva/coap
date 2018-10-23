@@ -78,7 +78,7 @@ module CoRE
                                   :mcode   => 0,
                                   :mid     => answer.mid})
 
-          send(message, data[1][3])
+          sendmsg(message, data[1][3])
         end
 
         answer
@@ -92,7 +92,7 @@ module CoRE
         retransmit = @retransmit && message.tt == :con
 
         begin
-          send(message, host, port)
+          sendmsg(message, host, port)
           response = receive(retry_count: retry_count, mid: message.mid)
         rescue Timeout::Error
           raise unless retransmit
@@ -114,7 +114,7 @@ module CoRE
       end
 
       # Send +message+.
-      def send(message, host, port = CoAP::PORT)
+      def sendmsg(message, host, port = CoAP::PORT)
         message = message.to_wire if message.respond_to?(:to_wire)
 
         # In MRI and Rubinius, the Socket::MSG_DONTWAIT option is 64.
@@ -146,8 +146,8 @@ module CoRE
         end
 
         # Instanciate matching Transmission and send message.
-        def send(*args)
-          invoke(:send, *args)
+        def sendmsg(*args)
+          invoke(:sendmsg, *args)
         end
 
         # Instanciate matching Transmission and perform request.
