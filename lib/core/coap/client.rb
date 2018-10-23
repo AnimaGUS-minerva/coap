@@ -7,6 +7,8 @@ module CoRE
 
       class NotDTLSSocket < Exception
       end
+      class UnknownCoAPResponse < Exception
+      end
 
       attr_accessor :max_payload, :host, :port, :scheme, :logger, :io, :dtls
       attr_accessor :client_cert, :client_key
@@ -254,6 +256,14 @@ module CoRE
           # Wait for answer and retry sending message if timeout reached.
           @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
           log_message(:received_message, recv_parsed)
+
+          case recv_parsed.mcode
+          when [2,31]    # Continue
+            true
+          else
+            raise UnknownCoAPResponse
+          end
+
         }
 
         return @transmission, recv_parsed
