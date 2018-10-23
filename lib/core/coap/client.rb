@@ -235,6 +235,7 @@ module CoRE
         coapoptions.delete(:block1)
 
         transmission = Transmission.build_transmission_for_options(coapoptions, host)
+        recv_parsed  = nil
 
         blocks.each { |block|
           # If more than 1 chunk, we need to use block1.
@@ -261,13 +262,17 @@ module CoRE
           case recv_parsed.mcode
           when [2,31]    # Continue
             true
+
+          when [4,4]     # NotFound
+            break
+
           else
             raise UnknownCoAPResponse
           end
 
         }
 
-        return @transmission, recv_parsed
+        return transmission, recv_parsed
       end
 
       def client(method, path, host = nil, port = nil, payload = nil, coapoptions = {}, observe_callback = nil)
