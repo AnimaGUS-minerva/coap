@@ -231,16 +231,16 @@ module CoRE
                              blocks: ,
                              coapoptions: {})
 
-        message.options[:mid] = message.mid
-
+        coapoptions[:mid] = message.mid
         coapoptions.delete(:block1)
-        message.options.merge!(coapoptions)
+
+        transmission = Transmission.build_transmission_for_options(coapoptions, host)
 
         blocks.each { |block|
           # If more than 1 chunk, we need to use block1.
 
           # More chunks?
-          if blocks.size > block.num + 1
+          if blocks.size > (block.num + 1)
             block.more = true
             message.options.delete(:block2)
           else
@@ -253,8 +253,9 @@ module CoRE
           # Set final payload.
           message.payload = block.data
 
+          recv_parsed = transmission.request(message, host, port)
+
           # Wait for answer and retry sending message if timeout reached.
-          @transmission, recv_parsed = Transmission.request(message, host, port, coapoptions)
           log_message(:received_message, recv_parsed)
 
           case recv_parsed.mcode
