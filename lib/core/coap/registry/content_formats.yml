@@ -7,3 +7,4 @@
 50: 'application/json'
 60: 'application/cbor'
 65001: 'application/voucher-cms+cbor'
+65502: 'application/voucher-cose+cbor'

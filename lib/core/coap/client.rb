@@ -263,6 +263,9 @@ module CoRE
           when [2,31]    # Continue
             true
 
+          when [2,5]     # Content, all good.
+            true
+
           when [4,4]     # NotFound
             break
 
