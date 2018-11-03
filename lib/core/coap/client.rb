@@ -330,7 +330,7 @@ module CoRE
         # make sure that the @options[:socket] is filled in
         coapoptions[:socket] = io
 
-        if chunks
+        if chunks and chunks.size > 1
           # something to send
           @transmission,recv_parsed = client_send_blocks(method: method, message: message,
                                                          host: host,

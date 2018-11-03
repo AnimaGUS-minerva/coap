@@ -101,6 +101,8 @@ module CoRE
       def self.chunkify(data, size)
 
         nsize = VALID_SIZE.find { |vs| size < vs }
+        nsize = size unless nsize
+
 
         num = 0
         chunks = data.bytes.each_slice(nsize).map { |c| c.pack('C*') }.collect { |d|
