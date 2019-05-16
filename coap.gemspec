@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   s.authors  = ['Carsten Bormann', 'Simon Frerichs', 'henning mueller']
   s.email    = 'henning@orgizm.net'
 
-  s.files         = `git ls-files`.split($/)
+  s.files         = IO::read("all-files.txt").split($/)
   s.executables   = s.files.grep(%r{^bin/}) { |f| File.basename(f) }
   s.test_files    = s.files.grep(%r{^(test|spec|features)/})
   s.require_paths = ['lib']
